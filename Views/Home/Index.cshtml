@@ -1,44 +1,121 @@
-﻿@{
+@model IReadOnlyList<Charcha.Models.ChatMessage>
+
+@{
     ViewData["Title"] = "Global Chat & Call";
 }
 
 <div class="container mt-4">
     <div class="row">
-        <div class="col-md-6">
+        <div class="col-lg-8 mx-auto">
             <div class="card shadow">
-                <div class="card-header text-white" style="background-color: #075E54;">
-                    <h5 class="mb-0">Charcha Chat</h5>
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #075E54;">
+                    <div>
+                        <h5 class="mb-0">Charcha Chat</h5>
+                        <small id="activeChatLabel">Global Chat</small>
+                    </div>
+                    <button id="videoCallButton" class="btn btn-light btn-sm d-none" type="button">Video Call</button>
                 </div>
 
-                <div class="card-body" id="chatWindow" style="height: 300px; overflow-y: auto; background-color: #EFEAE2;">
-                    <ul id="messagesList" class="list-unstyled mb-0 d-flex flex-column gap-2"></ul>
+                <div class="card-body p-0">
+                    <div class="chat-shell">
+                        <aside class="chat-sidebar">
+                            <button id="globalChatTab" class="chat-tab active" type="button" data-chat-id="global">
+                                Global Chat
+                            </button>
+                            <div class="chat-sidebar-title">Online Users</div>
+                            <div id="usersList" class="chat-user-list"></div>
+                        </aside>
+                        <section class="chat-panel">
+                            <div class="chat-panel-header">
+                                <span id="activeChatTitle">Global Chat</span>
+                            </div>
+                            <div class="chat-window" id="chatWindow">
+                                <ul id="messagesList" class="list-unstyled mb-0 d-flex flex-column gap-2">
+                                    @foreach (var message in Model)
+                                    {
+                                        var localTime = message.CreatedAt.LocalDateTime;
+                                        <li class="chat-message">
+                                            <strong>@message.User</strong><br />
+                                            @message.Message<br />
+                                            <time class="chat-time" datetime="@message.CreatedAt.ToString("O")" title="@localTime.ToString("F")">@localTime.ToString("MMM d, h:mm tt")</time>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        </section>
+                    </div>
                 </div>
 
                 <div class="card-footer bg-light">
                     <div class="row g-2">
-                        <div class="col-4">
-                            <input type="text" id="userInput" class="form-control form-control-sm" placeholder="Your Name" />
-                        </div>
-                        <div class="col-5">
+                        <div class="col">
                             <input type="text" id="messageInput" class="form-control form-control-sm" placeholder="Message..." />
                         </div>
-                        <div class="col-3 d-grid">
-                            <button id="sendButton" class="btn btn-success btn-sm" style="background-color: #128C7E; border: none;" disabled>Send</button>
+                        <div class="col-auto d-grid">
+                            <button id="sendButton" class="btn btn-success btn-sm chat-send-button" type="button" style="background-color: #128C7E; border: none;" disabled aria-label="Send message" title="Send message">
+                                <i data-lucide="send" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
+</div>
 
-        <div class="col-md-6">
-            <div class="card shadow">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Video Call</h5>
-                    <button id="startCallButton" class="btn btn-success btn-sm" disabled>Start Call</button>
+<div class="modal fade" id="usernameModal" tabindex="-1" aria-labelledby="usernameModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="usernameModalLabel">Enter your name</h5>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="usernameModalInput" class="form-control" maxlength="100" placeholder="Your name" autocomplete="name" />
+                <div id="usernameModalError" class="text-danger small mt-2 d-none">Please enter your name.</div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveUsernameButton" type="button" class="btn btn-success" style="background-color: #128C7E; border: none;">Continue</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="videoCallModal" tabindex="-1" aria-labelledby="videoCallModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="videoCallModalLabel">Video Call</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="card-body bg-black text-center position-relative" style="height: 300px;">
-                    <video id="remoteVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-                    <video id="localVideo" autoplay muted playsinline style="width: 100px; position: absolute; bottom: 10px; right: 10px; border: 2px solid white; border-radius: 8px;"></video>
+            </div>
+            <div class="modal-body bg-black p-0 text-center position-relative video-call-stage">
+                <video id="remoteVideo" autoplay playsinline class="video-call-remote"></video>
+                <video id="localVideo" autoplay muted playsinline class="video-call-local"></video>
+            </div>
+            <div class="modal-footer bg-light d-block">
+                <div id="callStatus" class="small text-muted mb-2">Camera is starting...</div>
+                <div class="btn-group w-100" role="group" aria-label="Video call controls">
+                    <button id="muteButton" class="btn btn-outline-secondary btn-sm" type="button" disabled>Mute</button>
+                    <button id="cameraButton" class="btn btn-outline-secondary btn-sm" type="button" disabled>Camera Off</button>
+                    <button id="endCallButton" class="btn btn-outline-danger btn-sm" type="button" disabled>End Call</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="incomingCallModal" tabindex="-1" aria-labelledby="incomingCallModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content incoming-call-modal">
+            <div class="modal-body text-center p-4">
+                <div class="incoming-call-icon" aria-hidden="true">Call</div>
+                <div class="incoming-call-ringing">Incoming video call</div>
+                <h5 id="incomingCallModalLabel" class="mb-2"><span id="incomingCallerName">Someone</span> is calling</h5>
+                <p id="incomingCallStatus" class="text-muted mb-4">Join to turn on your camera and microphone.</p>
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <button id="acceptCallButton" class="btn btn-success" type="button">Join Call</button>
+                    <button id="rejectCallButton" class="btn btn-outline-danger" type="button">Decline</button>
                 </div>
             </div>
         </div>
@@ -47,5 +124,7 @@
 
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script>lucide.createIcons();</script>
     <script src="~/js/chat.js"></script>
 }
